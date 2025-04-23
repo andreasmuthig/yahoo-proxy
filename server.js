@@ -1,38 +1,36 @@
 // server.js
-// Proxy-Service für Yahoo Finance API auf Render
+import express from 'express';
+import fetch from 'node-fetch';
+import cors from 'cors';
 
-const express = require("express");
-const fetch = require("node-fetch");
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// CORS-Middleware: alle Ursprünge erlauben
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  next();
-});
+app.use(cors());
 
-// Endpoint: /api/quote?symbol=XYZ
-app.get("/api/quote", async (req, res) => {
-  const symbol = req.query.symbol;
-  if (!symbol) {
-    return res.status(400).json({ error: "Missing symbol parameter" });
-  }
-  const endpoint = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(
-    symbol
-  )}?modules=summaryDetail,financialData,earningsTrend,recommendationTrend,price`;
+// Beispiel: https://dein-proxy.onrender.com/yahoo?symbol=AAPL
+app.get('/yahoo', async (req, res) => {
+  const symbol = req.query.symbol || 'AAPL';
+  const modules = 'summaryDetail,financialData,earningsTrend,recommendationTrend,price';
 
   try {
-    const response = await fetch(endpoint);
+    const response = await fetch(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=${modules}`);
     const data = await response.json();
-    return res.json(data);
+
+    if (!data.quoteSummary?.result) {
+      return res.status(400).json({ error: 'Keine gültigen Daten gefunden', details: data });
+    }
+
+    res.json(data.quoteSummary.result[0]);
   } catch (error) {
-    console.error(`Fehler beim Fetch für ${symbol}:`, error);
-    return res.status(502).json({ error: String(error) });
+    res.status(500).json({ error: 'Fehler beim Abruf der Daten', details: error.message });
   }
 });
 
-// Start
-const PORT = process.env.PORT || 10000;
+app.get('/', (req, res) => {
+  res.send('✅ Yahoo Finance Proxy ist online!');
+});
+
 app.listen(PORT, () => {
-  console.log(`Yahoo-Proxy-Service läuft auf Port ${PORT}`);
+  console.log(`✅ Server läuft auf Port ${PORT}`);
 });
